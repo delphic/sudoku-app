@@ -1,0 +1,36 @@
+Sudoku to do list
+ X Split Zen into SudokuController and SudokuView
+ X Tidy up SudokuBoard type
+	X Move the more complex methods to Utilities
+	- Move the remainder to prototype (not possible without making board public)
+	X Tidy up the copy mechanism
+	X Set Disabled on lock only
+ X Split to separate files
+ X Determine difficultly metric
+ O Create Puzzle Generator with existing solver
+ O Create Validator
+ O Complete functionality within View / Controller
+	O Pencil Marks
+	O Highlighting
+ O Add the increasing Techniques
+ BETA 1
+ O Test
+ O Add hint system
+ BETA 2
+ O Start including Zen Assets
+
+Difficult Metric:
+
+UWE spaces missing:
+Easy 20
+Novice 32
+Expert 52
+Master 52
+
+Might increase those.
+
+Techniques to use:
+Easy - Single Position, Single Candidate
+Novice - Double Pairs, Multiple Lines
+Expert - Naked Pairs / Hidden Pairs
+Master - X-Wings, Swordfish (Forcing Chains, Nishio) 

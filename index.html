@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<title>Sudoku Test</title>
+		<script src="jquery.js"></script>
+		<script src="Sudoku.js"></script>
+		<style>
+table { border-collapse: collapse; font-size: 40px; margin: 10px 0;}
+td { border: 1px solid #666; width: 60px; height: 60px; text-align: center; cursor: pointer; color: #333; }
+table table { margin: 0; }
+table table td { border: none; width: 20px; height: 20px; font-size: 16px; }
+button { min-width: 50px; min-height: 50px; font-size: 20px; }
+.c2, .c5 { border-right: 2px solid #000; }
+.r2, .r5 { border-bottom: 2px solid #000; }
+.r0 .c3, .r0 .c4, .r0 .c5, 
+.r1 .c3, .r1 .c4, .r1 .c5, 
+.r2 .c3, .r2 .c4, .r2 .c5, 
+.r6 .c3, .r6 .c4, .r6 .c5, 
+.r7 .c3, .r7 .c4, .r7 .c5, 
+.r8 .c3, .r8 .c4, .r8 .c5,
+.r3 .c0, .r3 .c1, .r3 .c2,
+.r4 .c0, .r4 .c1, .r4 .c2,
+.r5 .c0, .r5 .c1, .r5 .c2,
+.r3 .c6, .r3 .c7, .r3 .c8,
+.r4 .c6, .r4 .c7, .r4 .c8,
+.r5 .c6, .r5 .c7, .r5 .c8 { background-color: #CCC; }
+.disabled { color: #000; font-weight: bold; cursor: auto; }
+.selected { background-color: #FAA !important; }
+.highlight { color: orange; }
+		</style>
+	</head>
+	<body>
+		<h1>Sudoku Prototype</h1>
+		<div class="container"></div>
+		<div class="controls">
+			<div class="numbers">
+				<button id="btn1" value="1">1</button>
+				<button id="btn2" value="2">2</button>
+				<button id="btn3" value="3">3</button>
+				<button id="btn4" value="4">4</button>
+				<button id="btn5" value="5">5</button>
+				<button id="btn6" value="6">6</button>
+				<button id="btn7" value="7">7</button>
+				<button id="btn8" value="8">8</button>
+				<button id="btn9" value="9">9</button>
+			</div>
+			<div class="functions">
+				<button id="btnSelectCell" value="true">Cell then Value</button>
+				<button id="btnHighlight" value="false">Enable Highlight</button>
+				<button id="btnPencil" value="false">Enable Pencil</button>
+				<button id="btnEraser" value="false">Enable Eraser</button>
+			</div>
+		</div>
+	</body>
+</html>

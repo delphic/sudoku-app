@@ -27,11 +27,25 @@ var Utilities = function() {
         }
     }
 
+    /// Gets region index from board indices
+    /// 0 -> 9, reading left to right, top to bottom
     function getRegionIndex(x,y) {
         return Math.floor(x/3) + Math.floor(y/3)*3;
     }
 
-    // Get Index for Value
+    /// Takes region index and region row index
+    /// returns board row index
+    function getX(r, i) {
+        return r%3 + i;
+    }
+
+    /// Takes region index and region column index
+    /// returns board column index
+    function getY(r, j) {
+        return Math.floor(r/3) + j;
+    }
+
+    /// Get Index for Value
     function getXIndexForValueInRow(puzzle, rowIndex, value) {
         var index;
         for(var x=0; x < 9; x++) {
@@ -123,7 +137,13 @@ var Utilities = function() {
         return result;
     }
 
+    function pencilMarkContains(pencilMark, value) {
+        return (!pencilMark[0] && pencilMark[value]);
+    }
+
     return {
+        getX: getX,
+        getY: getY,
         getRow: getRow,
         setRow: setRow,
         getColumn: getColumn,
@@ -135,6 +155,7 @@ var Utilities = function() {
         rowHasValue: rowHasValue,
         regionHasValue: regionHasValue,
         getRegionIndex: getRegionIndex,
-        singlePencilMark: singlePencilMark
+        singlePencilMark: singlePencilMark,
+        pencilMarkContains: pencilMarkContains
     }
 }();

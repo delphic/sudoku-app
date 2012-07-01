@@ -7,13 +7,15 @@ Sudoku to do list
 	X Set Disabled on lock only
  X Split to separate files
  X Determine difficultly metric
- O Create Puzzle Generator with existing solver
- O Create Validator
+ X Create Puzzle Generator with existing solver
+ X Create Validator
+    O Write Validator Tests
  O Complete functionality within View / Controller
 	O Pencil Marks
 	O Highlighting
  O Add the increasing Techniques
  BETA 1
+ O Unit Tests before any refactoring!
  O Test
  O Add hint system
  BETA 2
@@ -31,6 +33,8 @@ Might increase those.
 
 Techniques to use:
 Easy - Single Position, Single Candidate
-Novice - Double Pairs, Multiple Lines
+Novice - Candidate Lines, Double Pairs, Multiple Lines
 Expert - Naked Pairs / Hidden Pairs
-Master - X-Wings, Swordfish (Forcing Chains, Nishio) 
+Master - X-Wings, Swordfish (Forcing Chains, Nishio)
+
+http://www.sudokuoftheday.com/pages/techniques-overview.php

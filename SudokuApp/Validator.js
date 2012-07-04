@@ -9,7 +9,7 @@ var Validator = function() {
     Validation.MissingPencilMark = "MissingPencilMark";
 
     // Check if an entry is invalid against puzzle
-    // Returns { value, coordinates, type } if there's a clash, null otherwise
+    // Returns { value, coords, type } if there's a clash, null otherwise
     function validatePuzzleEntries(puzzle) {
         var x, y, i, j, rx, ry, value;
         var cache = [];
@@ -73,6 +73,7 @@ var Validator = function() {
                         }
                     }
                 }
+                cache = [];
             }
         }
 
@@ -80,7 +81,7 @@ var Validator = function() {
     }
 
     // Check if pencil marks are invalid against puzzle
-    // Returns { value, valueCoordinate, pencilMarkCoordinate, type } or null
+    // Returns { value, valueCoord, pencilMarkCoord, type } or null
     function validatePuzzlePencilMarks(puzzle) {
         // For each number x, y, check pencil marks in row column and region
         var x, y, i, j, r, value;
@@ -138,6 +139,7 @@ var Validator = function() {
     }
 
     // Check if an entry is incorrect against solution
+    // Returns { coord, type } or null
     function validateAgainstSolution(puzzle, solution) {
         var x, y;
         for(x = 0; x < 9; x++) {
@@ -156,6 +158,7 @@ var Validator = function() {
     }
 
     // Check if pencil marks are missing against solution
+    // Returns { value, coord, type } or null
     function validatePencilMarksAgainstSolution(puzzle, solution) {
         var x, y;
         for(x = 0; x < 9; x++) {

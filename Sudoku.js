@@ -712,11 +712,25 @@ var Utilities = function() {
         }
     }
 
+    /// Gets region index from board indices
+    /// 0 -> 9, reading left to right, top to bottom
     function getRegionIndex(x,y) {
         return Math.floor(x/3) + Math.floor(y/3)*3;
     }
 
-    // Get Index for Value
+    /// Takes region index and region row index
+    /// returns board row index
+    function getX(r, i) {
+        return r%3 + i;
+    }
+
+    /// Takes region index and region column index
+    /// returns board column index
+    function getY(r, j) {
+        return Math.floor(r/3) + j;
+    }
+
+    /// Get Index for Value
     function getXIndexForValueInRow(puzzle, rowIndex, value) {
         var index;
         for(var x=0; x < 9; x++) {
@@ -808,7 +822,13 @@ var Utilities = function() {
         return result;
     }
 
+    function pencilMarkContains(pencilMark, value) {
+        return (!pencilMark[0] && pencilMark[value]);
+    }
+
     return {
+        getX: getX,
+        getY: getY,
         getRow: getRow,
         setRow: setRow,
         getColumn: getColumn,
@@ -820,18 +840,196 @@ var Utilities = function() {
         rowHasValue: rowHasValue,
         regionHasValue: regionHasValue,
         getRegionIndex: getRegionIndex,
-        singlePencilMark: singlePencilMark
+        singlePencilMark: singlePencilMark,
+        pencilMarkContains: pencilMarkContains
     }
 }();
 
 // SudokuValidator
-// Needs puzzle and solution
-// Will check if an entry is invalid against puzzle
-// Will check if an entry is incorrect against solution
-// Will check if pencil marks are invalid against puzzle
-// Will check if pencil marks are missing against solution
-
 var Validator = function() {
+    var Validation = {};
+    Validation.MultipleEntriesInRow = "EntriesInRow";
+    Validation.MultipleEntriesInColumn = "EntriesInColumn";
+    Validation.MultipleEntriesInRegion = "EntriesInRegion";
+    Validation.InvalidPencilMark = "InvalidPencilMark";
+    Validation.IncorrectValue = "IncorrectValue";
+    Validation.MissingPencilMark = "MissingPencilMark";
+
+    // Check if an entry is invalid against puzzle
+    // Returns { value, coords, type } if there's a clash, null otherwise
+    function validatePuzzleEntries(puzzle) {
+        var x, y, i, j, rx, ry, value;
+        var cache = [];
+
+        // Check Rows
+        for(x = 0; x < 9; x++) {
+            for(y = 0; y < 9; y++) {
+                value = puzzle.getValue(x, y);
+                if(value) {
+                    if(cache[value]) {
+                        return {
+                            value: value,
+                            coords: [cache[value], [x, y]],
+                            type: Validation.MultipleEntriesInRow
+                        };
+                    } else {
+                        cache[value] = [x,y];
+                    }
+                }
+            }
+            cache = [];
+        }
+
+        // Check Columns
+        for(y = 0; y < 9; y++) {
+            for(x = 0; x < 9; x++) {
+                value = puzzle.getValue(x, y);
+                if(value) {
+                    if(cache[value]) {
+                        return {
+                            value: value,
+                            coords: [cache[value], [x,y]],
+                            type: Validation.MultipleEntriesInColumn
+                        };
+                    } else {
+                        cache[value] = [x, y];
+                    }
+                }
+            }
+            cache = [];
+        }
+
+        // Check Regions
+        for(rx = 0; rx < 3; rx++) {
+            for(ry = 0; ry < 3; ry++) {
+                for(i = 0; i< 3; i++) {
+                    for(j = 0; j < 3; j++) {
+                        x = rx*3 + i;
+                        y = ry*3 + j;
+                        value = puzzle.getValue(x,y);
+                        if(value) {
+                            if(cache[value]) {
+                                return {
+                                    value: value,
+                                    coords: [cache[value], [x,y]],
+                                    type: Validation.MultipleEntriesInRegion
+                                };
+                            } else {
+                                cache[value] = [x, y];
+                            }
+                        }
+                    }
+                }
+                cache = [];
+            }
+        }
+
+        return null;
+    }
+
+    // Check if pencil marks are invalid against puzzle
+    // Returns { value, valueCoord, pencilMarkCoord, type } or null
+    function validatePuzzlePencilMarks(puzzle) {
+        // For each number x, y, check pencil marks in row column and region
+        var x, y, i, j, r, value;
+        for(x = 0; x < 9; x++) {
+            for(y =0; y < 9; y++) {
+                value = puzzle.getValue(x,y);
+                if(value) {
+                    // Check Row
+                    for(i = 0; i < 9; i++) {
+                        if(!puzzle.getValue(i,y)) {
+                            if (Utilities.pencilMarkContains(puzzle.getPencilMark(i,y), value)) {
+                                return {
+                                    value: value,
+                                    valueCoord: [x,y],
+                                    pencilMarkCoord: [i,y],
+                                    type: Validation.InvalidPencilMark
+                                };
+                            }
+                        }
+                    }
+                    // Check Column
+                    for(j = 0; j < 9; j++) {
+                        if(!puzzle.getValue(x,j)) {
+                            if(Utilities.pencilMarkContains(puzzle.getPencilMark(x,j), value)) {
+                                return {
+                                    value: value,
+                                    valueCoord: [x,y],
+                                    pencilMarkCoord: [x,j],
+                                    type: Validation.InvalidPencilMark
+                                };
+                            }
+                        }
+                    }
+                    // Check Region
+                    r = Utilities.getRegionIndex(x,y);
+                    for(i = 0; i < 3; i++) {
+                        for(j = 0; j < 3; j++) {
+                            if(!puzzle.getValue(Utilities.getX(r, i), Utilities.getY(r, j))) {
+                                if(Utilities.pencilMarkContains(puzzle.getPencilMark(Utilities.getX(r, i), Utilities.getY(r, j)), value)) {
+                                    return {
+                                        value: value,
+                                        valueCoord: [x,y],
+                                        pencilMarkCoord: [Utilities.getX(r, i), Utilities.getY(r, j)],
+                                        type: Validation.InvalidPencilMark
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Check if an entry is incorrect against solution
+    // Returns { coord, type } or null
+    function validateAgainstSolution(puzzle, solution) {
+        var x, y;
+        for(x = 0; x < 9; x++) {
+            for(y = 0; y < 9; y++) {
+                if(puzzle.getValue(x,y)) {
+                    if(puzzle.getValue(x,y) !== solution.getValue(x,y)) {
+                        return {
+                            coord: [x, y],
+                            type: Validation.IncorrectValue
+                        };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // Check if pencil marks are missing against solution
+    // Returns { value, coord, type } or null
+    function validatePencilMarksAgainstSolution(puzzle, solution) {
+        var x, y;
+        for(x = 0; x < 9; x++) {
+            for(y = 0; y < 9; y++) {
+                if(!puzzle.getValue(x,y)) {
+                    if(!Utilities.pencilMarkContains(puzzle.getPencilMark(x,y), solution.getValue(x,y))) {
+                        return {
+                            value: solution.getValue(x,y),
+                            coord: [x,y],
+                            type: Validation.MissingPencilMark
+                        };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    return {
+        validatePuzzleEntries: validatePuzzleEntries,
+        validatePuzzlePencilMarks: validatePuzzlePencilMarks,
+        validateAgainstSolution: validateAgainstSolution,
+        validatePencilMarksAgainstSolution: validatePencilMarksAgainstSolution
+    }
 }();
 
 // SudokuView
@@ -924,6 +1122,201 @@ var View = function(){
         updateCell: updateCell
     }
 }();
+var Tests = function(){
+var ValidatorTests = function(){
+    var Tests = [];
 
-return {Controller:Controller,FullBoardGenerator:FullBoardGenerator,PuzzleGenerator:PuzzleGenerator,Solver:Solver,Utilities:Utilities,Validator:Validator,View:View};
+    var fullBoard = FullBoardGenerator.generateBoard();
+
+    // Test validatePuzzleEntries
+    // Separate tests for row, column and region
+    // Returns { value, coords, type } if there's a clash, null otherwise
+    var validatePuzzleEntriesFullBoardTest = function() {
+        return (Validator.validatePuzzleEntries(fullBoard) === null);
+    };
+    Tests.push(validatePuzzleEntriesFullBoardTest);
+
+    var validatePuzzleEntriesRowClashTest = function() {
+        var boardClash = new SudokuBoard(fullBoard);
+        var value = boardClash.getValue(5,0)
+        boardClash.setValue(0, 0, value);
+        var validationResult = Validator.validatePuzzleEntries(boardClash);
+        if(validationResult === null) {
+            return "Validation Result was null, expected clash at [0,0], [5,0]";
+        } else if (validationResult.value !== value) {
+            return "Validation Result was " + validationResult.value + " expected " + value;
+        } else if (validationResult.coords !== [[0,0],[5,0]] && validationResult.coords !== [[5,0],[0,0]]) {
+            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[5,0]];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzleEntriesRowClashTest);
+
+    var validatePuzzleEntriesColumnClashTest = function() {
+        var boardClash = new SudokuBoard(fullBoard);
+        var value = boardClash.getValue(0,6)
+        boardClash.setValue(0, 0, value);
+        var validationResult = Validator.validatePuzzleEntries(boardClash);
+        if(validationResult === null) {
+            return "Validation Result was null, expected clash at [0,0], [0,6]";
+        } else if (validationResult.value !== value) {
+            return "Validation Result was " + validationResult.value + " expected " + value;
+        } else if (validationResult.coords !== [[0,0],[0,6]] && validationResult.coords !== [[0,6],[0,0]]) {
+            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[0,6]];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzleEntriesColumnClashTest);
+
+    var validatePuzzleEntriesRegionClashTest = function() {
+        var boardClash = new SudokuBoard(fullBoard);
+        var value = boardClash.getValue(1,1)
+        boardClash.setValue(0, 0, value);
+        var validationResult = Validator.validatePuzzleEntries(boardClash);
+        if(validationResult === null) {
+            return "Validation Result was null, expected clash at [0,0], [1,1]";
+        } else if (validationResult.value !== value) {
+            return "Validation Result was " + validationResult.value + " expected " + value;
+        } else if (validationResult.coords !== [[0,0],[1,1]] && validationResult.coords !== [[1,1],[0,0]]) {
+            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[1,1]];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzleEntriesRegionClashTest);
+
+    // Test validatePuzzlePencilMarks
+    // Returns { value, valueCoord, pencilMarkCoord, type } or null
+    var validatePuzzlePencilMarksValidTest = function() {
+       // Remove 3 numbers place pencil marks
+        var testBoard = new SudokuBoard(fullBoard);
+        var value = testBoard.getValue(0,0);
+        testBoard.setValue(0,0,0);
+        testBoard.addPencilMark(0,0,value);
+        value = testBoard.getValue(3,3);
+        testBoard.setValue(3,3,0);
+        testBoard.addPencilMark(3,3,value);
+        value = testBoard.getValue(6,6);
+        testBoard.setValue(6,6,0);
+        testBoard.addPencilMark(6,6,value);
+
+        if (Validator.validatePuzzlePencilMarks(fullBoard) === null) {
+            return true;
+        } else {
+            return "Unexpected result expected null";
+        }
+    };
+    Tests.push(validatePuzzlePencilMarksValidTest);
+	
+     var validatePuzzlePencilMarksRowTest = function() {
+        var testBoard = new SudokuBoard(fullBoard);
+        var value = testBoard.getValue(5,0);
+        testBoard.setValue(0,0,0);
+        testBoard.addPencilMark(0,0,value);
+        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
+        if(validationResult.value !== value) {
+            return "Unexpected value was " + validationResult.value + " expected " + value;
+        } else if (validationResult.valueCoord !== [5,0]) {
+            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [5,0];
+        } else if (validationResult.pencilMarkCoord !== [0,0]) {
+            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzlePencilMarksRowTest);
+
+    var validatePuzzlePencilMarksColumnTest = function() {
+        var testBoard = new SudokuBoard(fullBoard);
+        var value = testBoard.getValue(0,5);
+        testBoard.setValue(0,0,0);
+        testBoard.addPencilMark(0,0,value);
+        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
+        if(validationResult.value !== value) {
+            return "Unexpected value was " + validationResult.value + " expected " + value;
+        } else if (validationResult.valueCoord !== [0,5]) {
+            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [0,5];
+        } else if (validationResult.pencilMarkCoord !== [0,0]) {
+            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzlePencilMarksColumnTest);
+
+    var validatePuzzlePencilMarksRegionTest = function() {
+        var testBoard = new SudokuBoard(fullBoard);
+        var value = testBoard.getValue(1,1);
+        testBoard.setValue(0,0,0);
+        testBoard.addPencilMark(0,0,value);
+        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
+        if(validationResult.value !== value) {
+            return "Unexpected value was " + validationResult.value + " expected " + value;
+        } else if (validationResult.valueCoord !== [1,1]) {
+            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [1,1];
+        } else if (validationResult.pencilMarkCoord !== [0,0]) {
+            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        }
+        return true;
+    };
+    Tests.push(validatePuzzlePencilMarksRegionTest);
+
+    var validateAgainstSolutionValidTest = function() {
+         if(Validator.validateAgainstSolution(fullBoard, fullBoard) !== null) {
+            return "Unexpected validation error";
+         }
+         return true;
+     };
+    Tests.push(validateAgainstSolutionValidTest);
+
+    var validateAgainstSolutionInvalidTest = function() {
+        var secondBoard = new SudokuBoard(fullBoard);
+        secondBoard.setValue(0,0,secondBoard.getValue(1,1));
+        var validationResult =  Validator.validateAgainstSolution(fullBoard, secondBoard);
+        if(validationResult.coord !== [0,0]) {
+            return "Incorrect Validation Coordinate was " + validationResult.coord + " expected " + [0,0];
+        }
+    };
+    Tests.push(validateAgainstSolutionValidTest);
+
+    // Test validatePencilMarksAgainstSolution
+    // Returns { value, coord, type } or null
+    var validatePencilMarksAgainstSolutionValidTest = function() {
+        var secondBoard = new SudokuBoard(fullBoard);
+        var value = secondBoard.getValue(0,0);
+        secondBoard.setValue(0,0,0);
+        secondBoard.addPencilMark(0,0,value);
+        if(Validator.validatePencilMarksAgainstSolution(secondBoard, fullBoard) !== null) {
+            return "Unexpected validation error";
+        }
+        return true;
+    };
+    Tests.push(validatePencilMarksAgainstSolutionValidTest);
+
+    var validatePencilMarksAgainstSolutionInvalidTest = function() {
+        var secondBoard = new SudokuBoard(fullBoard);
+        var value = secondBoard.getValue(0,0);
+        secondBoard.setValue(0,0,0);
+        var validationResult = Validator.validatePencilMarksAgainstSolution(secondBoard, fullBoard);
+        if(validationResult.value !== value) {
+            return "Unexpected value was " + validationResult.value + " expected " + value;
+        } else if (validationResult.coord !== [0,0]) {
+            return "Unexpected coordinates was " + validationResult.coord + " expected " + [0,0];
+        }
+        return true;
+    };
+    Tests.push(validatePencilMarksAgainstSolutionInvalidTest);
+	
+    function RunTests() {
+        for(var i = 0; i < Tests.length; i++) {
+            var testResult = Tests[0]();
+            if(testResult === true) { testResult = "passed"; }
+            $("body").append("<p>Test #" + i + ": " + testResult + "</p>");
+        }
+    }
+
+    return { RunTests: RunTests };
+}();
+
+return {ValidatorTests:ValidatorTests};
+}();
+
+return {Tests:Tests,Controller:Controller,FullBoardGenerator:FullBoardGenerator,PuzzleGenerator:PuzzleGenerator,Solver:Solver,Utilities:Utilities,Validator:Validator,View:View};
 }();

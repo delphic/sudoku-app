@@ -9,7 +9,7 @@ Sudoku to do list
  X Determine difficultly metric
  X Create Puzzle Generator with existing solver
  X Create Validator
-    O Write Validator Tests
+    X Write Validator Tests
  O Complete functionality within View / Controller
 	O Pencil Marks
 	O Highlighting

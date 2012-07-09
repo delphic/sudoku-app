@@ -4,6 +4,7 @@ var Controller = function() {
     var solution;
     var puzzle;
     var highlight = false;
+    var highlightedValue = 0;
     var selectCellFirst = true;
     var pencilDown = false;
     var eraserDown = false;
@@ -24,58 +25,115 @@ var Controller = function() {
         View.bindButton("btnSelectCell", function() {
             selectCellFirst = !selectCellFirst;
             View.setButtonText("btnSelectCell", (selectCellFirst) ? "Cell then Value" : "Value then Cell");
-            if(!selectCellFirst) { View.clearSelection(); }
+            if(!selectCellFirst) {
+                selectedCell = null;
+                View.clearSelection();
+            }
         });
         View.bindButton("btnHighlight", function() {
             highlight = !highlight;
             View.setButtonText("btnHighlight", (highlight) ? "Disable Highlight" : "Enable Highlight");
-            // TODO: Enable highlight
+            if(highlight && (highlightedValue || selectedValue)) {
+                if(!highlightedValue) { highlightedValue = selectedValue; }
+                View.highlight(Utilities.getCoordinatesForValue(puzzle, highlightedValue));
+            } else if (!highlight) {
+                View.clearHighlight();
+            }
         });
-
         View.bindButton("btnPencil", function() {
             pencilDown = !pencilDown;
             View.setButtonText("btnPencil", (pencilDown) ? "Disable Pencil" : "Enable Pencil");
         });
         View.bindButton("btnEraser", function() {
             eraserDown = !eraserDown;
+            if(selectCellFirst) { selectNumber(0); }
             View.setButtonText("btnEraser", (eraserDown) ? "Disable Eraser" : "Enable Eraser" );
         });
     }
 
-    function selectCell(x,y) {
-        selectedCell = [x, y];
-        if(eraserDown) {
-            setCellValue(0);
-            selectedCell = null;
+    function touchCell(x,y) {
+        var cellValue = puzzle.getValue(x,y);
+        // TODO: If Cell is not locked
+        if(selectCellFirst) {
+            // Select Cell First Mode
+            if(selectedCell && selectedCell[0] === x && selectedCell[1] === y) {
+                // Deselect Cell
+                selectedCell = null;
+            } else {
+                // Select Cell
+                selectedCell = [x,y];
+                // Add Highlight if there is a value
+                if(cellValue) {
+                    highlightedValue = cellValue;
+                }
+            }
         } else {
-            if(selectCellFirst) {
-                if(!eraserDown) {
-                    View.selectCell(x,y);
-                }
-            }
-            // TODO: If cell then value && highlight, enable highlight on value of this cell
-            if(!selectCellFirst && selectedValue) {
+            // Select Value First Mode
+            if(selectedValue) {
                 if(!pencilDown) {
-                    setCellValue(selectedValue);
+                    // Pencil Not Down
+                    if (selectedValue === cellValue) {
+                        // Clear Value
+                        puzzle.setValue(x, y, 0);
+                    } else {
+                        // TODO: Is Value Valid?
+                        puzzle.setValue(x, y, selectedValue);
+                    }
+                } else {
+                    // Pencil is Down
+                    if(Utilities.pencilMarkContains(puzzle.getPencilMark(x,y),selectedValue)) {
+                        // Clear Value
+                        puzzle.removePencilMark(x,y,selectedValue);
+                    } else {
+                        // TODO: Is Pencil Mark Valid?
+                        puzzle.addPencilMark(x,y,selectedValue);
+                    }
                 }
+            } else if (eraserDown) {
+                // Remove Value
+                puzzle.setValue()
+            } else {
+                // Highlight value in cell
+                highlightedValue = cellValue;
             }
         }
-    }
-
-    function selectNumber(value) {
-        selectedValue = value;
-        if(selectCellFirst && selectedCell) {
-            setCellValue(value);
+        // TODO: Else toggle highlight for value
+        // Update View
+        View.updateCell(x,y,puzzle);
+        if(selectedCell) {
+            View.selectCell(x,y);
+        } else {
+            View.clearSelection();
         }
+        if (highlight) {
+            View.clearHighlight();
+            View.highlight(Utilities.getCoordinatesForValue(puzzle, highlightedValue));
+        }
+
     }
 
-    function setCellValue(value) {
-        // TODO: Check for conflicts, and do not set value and highlight them if found
-        puzzle.setValue(selectedCell[0], selectedCell[1], value);
-        View.updateCell(selectedCell[0], selectedCell[1], puzzle);
-        // Value = 0 if erasing, do not select cell
-        if(selectCellFirst && value) {
-            View.selectCell(selectedCell[0], selectedCell[1]);
+     function selectNumber(value) {
+         selectedValue = value;
+         highlightedValue = value;
+         if(selectCellFirst && selectedCell) {
+             var x = selectedCell[0], y = selectedCell[1];
+            if(!pencilDown) {
+                puzzle.setValue(x, y, value);
+            } else {
+                // Pencil is Down
+                if(Utilities.pencilMarkContains(puzzle.getPencilMark(x,y),value)) {
+                    // Clear Value
+                    puzzle.removePencilMark(x, y, value);
+                } else {
+                    // TODO: Is Pencil Mark Valid?
+                    puzzle.addPencilMark(x, y, value);
+                }
+            }
+            // Update View
+            View.updateCell(x,y,puzzle);
+         }
+         if (highlight) {
+            View.highlight(Utilities.getCoordinatesForValue(puzzle, highlightedValue));
         }
     }
 
@@ -98,7 +156,7 @@ var Controller = function() {
     }
 
     return {
-        selectCell: 	selectCell
+        touchCell: 	touchCell
     }
 }();
 
@@ -730,6 +788,18 @@ var Utilities = function() {
         return Math.floor(r/3) + j;
     }
 
+    function getCoordinatesForValue(puzzle, value) {
+        var cells = [];
+        for(var x = 0; x < 9; x++) {
+            for(var y = 0; y < 9; y++) {
+                if (puzzle.getValue(x,y) === value) {
+                    cells.push([x,y]);
+                }
+            }
+        }
+        return cells;
+    }
+
     /// Get Index for Value
     function getXIndexForValueInRow(puzzle, rowIndex, value) {
         var index;
@@ -833,6 +903,7 @@ var Utilities = function() {
         setRow: setRow,
         getColumn: getColumn,
         setColumn: setColumn,
+        getCoordinatesForValue: getCoordinatesForValue,
         getXIndexForValueInRow: getXIndexForValueInRow,
         getYIndexForValueInColumn: getYIndexForValueInColumn,
         getCoordForValueInRegion: getCoordForValueInRegion,
@@ -1061,7 +1132,7 @@ var View = function(){
         }
 
         function _onClickJs(x,y) {
-            return "onclick=\"Sudoku.Controller.selectCell(" + x + "," + y + ");\"";
+            return "onclick=\"Sudoku.Controller.touchCell(" + x + "," + y + ");\"";
         }
 
         function _getPencilMarkHtml(pencilMark) {
@@ -1092,12 +1163,27 @@ var View = function(){
         $("#"+id).click(command);
     }
 
+    function clearHighlight() {
+        $(".highlight").removeClass("highlight");
+    }
+
     function clearSelection() {
         $(".selected").removeClass("selected");
     }
 
     function drawPuzzle(puzzle) {
         $('.container').html(ZenHtml.getBoardHtml(puzzle));
+    }
+
+    function highlight(cells) {
+        clearHighlight();
+        for(var i = 0; i < cells.length; i++) {
+            $(".r"+cells[i][1]+" .c"+cells[i][0]).addClass("highlight");
+        }
+    }
+
+    function highlightPencilMarks(cells, value) {
+        // Highlight the appropriate cell
     }
 
     function setButtonText(id, text) {
@@ -1115,14 +1201,18 @@ var View = function(){
 
     return {
         bindButton: bindButton,
+        clearHighlight: clearHighlight,
         clearSelection: clearSelection,
         drawPuzzle: drawPuzzle,
+        highlight: highlight,
         selectCell: selectCell,
         setButtonText: setButtonText,
         updateCell: updateCell
     }
 }();
+
 var Tests = function(){
+// Should probably be using a proper framework e.g. QUnit
 var ValidatorTests = function(){
     var Tests = [];
 
@@ -1132,7 +1222,11 @@ var ValidatorTests = function(){
     // Separate tests for row, column and region
     // Returns { value, coords, type } if there's a clash, null otherwise
     var validatePuzzleEntriesFullBoardTest = function() {
-        return (Validator.validatePuzzleEntries(fullBoard) === null);
+        if (Validator.validatePuzzleEntries(fullBoard) === null) {
+            return true;
+        } else {
+            return "Unexpected result expected null";
+        }
     };
     Tests.push(validatePuzzleEntriesFullBoardTest);
 
@@ -1206,8 +1300,8 @@ var ValidatorTests = function(){
         }
     };
     Tests.push(validatePuzzlePencilMarksValidTest);
-	
-     var validatePuzzlePencilMarksRowTest = function() {
+
+    var validatePuzzlePencilMarksRowTest = function() {
         var testBoard = new SudokuBoard(fullBoard);
         var value = testBoard.getValue(5,0);
         testBoard.setValue(0,0,0);
@@ -1258,7 +1352,9 @@ var ValidatorTests = function(){
     };
     Tests.push(validatePuzzlePencilMarksRegionTest);
 
-    var validateAgainstSolutionValidTest = function() {
+    // Test validateAgainstSolution
+    // Returns { coord, type } or null
+     var validateAgainstSolutionValidTest = function() {
          if(Validator.validateAgainstSolution(fullBoard, fullBoard) !== null) {
             return "Unexpected validation error";
          }
@@ -1269,7 +1365,7 @@ var ValidatorTests = function(){
     var validateAgainstSolutionInvalidTest = function() {
         var secondBoard = new SudokuBoard(fullBoard);
         secondBoard.setValue(0,0,secondBoard.getValue(1,1));
-        var validationResult =  Validator.validateAgainstSolution(fullBoard, secondBoard);
+        var validationResult =  Validator.validateAgainstSolution(secondBoard, fullBoard);
         if(validationResult.coord !== [0,0]) {
             return "Incorrect Validation Coordinate was " + validationResult.coord + " expected " + [0,0];
         }
@@ -1303,7 +1399,7 @@ var ValidatorTests = function(){
         return true;
     };
     Tests.push(validatePencilMarksAgainstSolutionInvalidTest);
-	
+
     function RunTests() {
         for(var i = 0; i < Tests.length; i++) {
             var testResult = Tests[0]();
@@ -1317,6 +1413,5 @@ var ValidatorTests = function(){
 
 return {ValidatorTests:ValidatorTests};
 }();
-
 return {Tests:Tests,Controller:Controller,FullBoardGenerator:FullBoardGenerator,PuzzleGenerator:PuzzleGenerator,Solver:Solver,Utilities:Utilities,Validator:Validator,View:View};
 }();

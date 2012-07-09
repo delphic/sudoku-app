@@ -45,6 +45,18 @@ var Utilities = function() {
         return Math.floor(r/3) + j;
     }
 
+    function getCoordinatesForValue(puzzle, value) {
+        var cells = [];
+        for(var x = 0; x < 9; x++) {
+            for(var y = 0; y < 9; y++) {
+                if (puzzle.getValue(x,y) === value) {
+                    cells.push([x,y]);
+                }
+            }
+        }
+        return cells;
+    }
+
     /// Get Index for Value
     function getXIndexForValueInRow(puzzle, rowIndex, value) {
         var index;
@@ -148,6 +160,7 @@ var Utilities = function() {
         setRow: setRow,
         getColumn: getColumn,
         setColumn: setColumn,
+        getCoordinatesForValue: getCoordinatesForValue,
         getXIndexForValueInRow: getXIndexForValueInRow,
         getYIndexForValueInColumn: getYIndexForValueInColumn,
         getCoordForValueInRegion: getCoordForValueInRegion,

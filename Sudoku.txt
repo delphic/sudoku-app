@@ -11,9 +11,22 @@ Sudoku to do list
  X Create Validator
     X Write Validator Tests
  O Complete functionality within View / Controller
-	O Pencil Marks
+	X Pencil Marks
 	O Highlighting
+	O Integrate Validator
  O Add the increasing Techniques
+    Medium:
+    O Candidate Lines
+    O Multiple Lines
+    Hard:
+    O Hidden Pairs / Triple / Quad
+    O Naked Pairs / Triple / Quad
+    Master:
+    O X-Wings
+    O Swordfish
+    O Forcing Chains
+    O Nishio
+ O Work out a way of forcing certain techniques to be used (switch removed pairs until technique used?)
  BETA 1
  O Unit Tests before any refactoring!
  O Test

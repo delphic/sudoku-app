@@ -27,7 +27,7 @@ var View = function(){
         }
 
         function _onClickJs(x,y) {
-            return "onclick=\"Sudoku.Controller.selectCell(" + x + "," + y + ");\"";
+            return "onclick=\"Sudoku.Controller.touchCell(" + x + "," + y + ");\"";
         }
 
         function _getPencilMarkHtml(pencilMark) {
@@ -58,12 +58,27 @@ var View = function(){
         $("#"+id).click(command);
     }
 
+    function clearHighlight() {
+        $(".highlight").removeClass("highlight");
+    }
+
     function clearSelection() {
         $(".selected").removeClass("selected");
     }
 
     function drawPuzzle(puzzle) {
         $('.container').html(ZenHtml.getBoardHtml(puzzle));
+    }
+
+    function highlight(cells) {
+        clearHighlight();
+        for(var i = 0; i < cells.length; i++) {
+            $(".r"+cells[i][1]+" .c"+cells[i][0]).addClass("highlight");
+        }
+    }
+
+    function highlightPencilMarks(cells, value) {
+        // Highlight the appropriate cell
     }
 
     function setButtonText(id, text) {
@@ -81,8 +96,10 @@ var View = function(){
 
     return {
         bindButton: bindButton,
+        clearHighlight: clearHighlight,
         clearSelection: clearSelection,
         drawPuzzle: drawPuzzle,
+        highlight: highlight,
         selectCell: selectCell,
         setButtonText: setButtonText,
         updateCell: updateCell

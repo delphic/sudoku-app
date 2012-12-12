@@ -11,9 +11,8 @@ var Controller = function() {
     var selectedCell;
 
     $(document).ready(function() {
-        init();
         bindButtons();
-        View.drawPuzzle(puzzle);
+        init(View.drawPuzzle);
     });
 
     function bindButtons() {
@@ -138,9 +137,14 @@ var Controller = function() {
         }
     }
 
-    function init() {
+    function init(callback) {
+        function cb(generatedPuzzle) {
+            puzzle = generatedPuzzle;
+            callback(puzzle);
+        }
         solution = FullBoardGenerator.generateBoard();
-        puzzle = PuzzleGenerator.Generate({ fullBoard: solution });
+        puzzle = PuzzleGenerator.GenerateAsync({ fullBoard: solution }, cb);
+
     }
 
     return {

@@ -44,8 +44,10 @@ var Controller = function() {
             pencilDown = !pencilDown;
             View.setButtonText("btnPencil", (pencilDown) ? "Disable Pencil" : "Enable Pencil");
         });
+        // TODO: Fix this w.r.t cell then value (just erase) or value then sell (eraser enabled)
         View.bindButton("btnEraser", function() {
             eraserDown = !eraserDown;
+            selectedValue = 0;
             if(selectCellFirst) { selectNumber(0); }
             View.setButtonText("btnEraser", (eraserDown) ? "Disable Eraser" : "Enable Eraser" );
         });
@@ -139,20 +141,7 @@ var Controller = function() {
 
     function init() {
         solution = FullBoardGenerator.generateBoard();
-        // TODO : Replace with Proper Sudoku Puzzle Generator !
-
         puzzle = PuzzleGenerator.Generate({ fullBoard: solution });
-
-        /*
-         puzzle = new SudokuBoard(solution);
-         for(var n = 0; n < 20; n++) {
-         var x = Math.floor(Math.random()*5);
-         var y = Math.floor(Math.random()*9);
-         puzzle.setValue(x,y,0);
-         puzzle.setValue(8-x,8-y, 0);
-         }
-         puzzle.lock();
-         */
     }
 
     return {
@@ -342,7 +331,7 @@ var PuzzleGenerator = function() {
     function Generate(parameters) {
         var fullBoard = parameters.fullBoard;
         var puzzle = new SudokuBoard(fullBoard);
-        var squaresToRemove = 20;
+        var squaresToRemove = 32;
         var squaresRemoved = 0;
         var cache = [];
 
@@ -454,6 +443,12 @@ var Solver = function() {
             return { type: "Add", coords: [singleCandidate.coord], values: [singleCandidate.value] };
         }
 
+        // Candidate Lines
+        var pencilMarksToRemove = _candidateLines();
+        if(pencilMarksToRemove) {
+            return { type: "CandidateLines", coords: pencilMarksToRemove.coords, values:  [ pencilMarksToRemove.value ] };
+        }
+
         // Onwards!
 
     }
@@ -493,20 +488,26 @@ var Solver = function() {
                 case "Add":
                     console.log("Setting value " + move.values[0] + " at " + move.coords[0][0] + ", " + move.coords[0][1] + ".");
                     sudokuBoard.setValue(move.coords[0][0], move.coords[0][1], move.values[0]);
+                    return true;
                     break;
                 case "RemovePencilMark":
                     sudokuBoard.removePencilMark(move.coords[0][0], move.coords[0][1], move.values[0]);
                     console.log("Removing Pencil Mark " + move.values[0] + " at " + move.coords[0][0] + ", " + move.coords[0][1] + ".");
-                    return false;
+                    break;
+                case "CandidateLines":
+                    console.log("Candidate Lines Found")
+                    for(var n = 0; n < move.coords.length; n++) {
+                        sudokuBoard.removePencilMark(move.coords[n][0], move.coords[n][1], move.values[0]);
+                        console.log("Removing Pencil Mark " + move.values[0] + " at " + move.coords[m][0] + ", " + move.coords[m][1] + ".");
+                    }
                     break;
                 case "Complete":
                     console.log("No logical moves as board is complete");
-                    return false;
+                    break;
                 default:
                     console.log("Unrecognised Move.");
                     throw new Error("Unrecognised Move");
             }
-            return true;
         }
         //console.log("No logical moves");
         return false;
@@ -626,6 +627,95 @@ var Solver = function() {
                             value: singlePencilMark
                         }
                     }
+                }
+            }
+        }
+        return null;
+    }
+
+    function _candidateLines() {
+        // Returns { coords: [array of coordinates], value: value }
+        // For each number
+        for(var n = 1; n < 9; n++) {
+            // For each region
+            for(var region = 0; region < 9; region++) {
+                // Do marks for this number exist in only one column
+                var result = false;
+                var marksFound = false;
+                var localColumnIndex = 0;
+                for(var y = 0; y < 3; y++) {
+                    if(Utilities.columnInRegionHasPencilMark(sudokuBoard, region, y, n)) {
+                        if(marksFound) {
+                            result = false;
+                            break;
+                        } else  {
+                            marksFound = true;
+                            result = true;
+                            localColumnIndex = y;
+                        }
+                    }
+                }
+                // If yes, does that column have any other marks of this type
+                var otherRegionsHavePencilMark = false;
+                for(var r = 0; r < 9; r++) {
+                    if(Utilities.getY(r, localColumnIndex) === Utilities.getY(region, localColumnIndex) && r !== region) {
+                        if(Utilities.columnInRegionHasPencilMark(sudokuBoard, r, localColumnIndex, n)) {
+                            otherRegionsHavePencilMark = true;
+                            break;
+                        }
+                    }
+                }
+
+                if(result && otherRegionsHavePencilMark) {
+                    // Return the marks that are not in region
+                    var coords = [];
+                    var marksInColumn = Utilities.getCoordsForPencilMarkInColumnByRegion(sudokuBoard, Utilities.getY(region, localColumnIndex), n);
+                    for(var q = 0; q < marksInColumn.length; q++) {
+                        if(marksInColumn[q].region !== region) {
+                            coords.push(marksInColumn.coord);
+                        }
+                    }
+                    return { coords: coords, value: n };
+                }
+
+                // Do marks for this number exist in only one row
+                result = false;
+                marksFound = false;
+                var localRowIndex = 0;
+                for(var x = 0; x < 3; x++) {
+                    if(Utilities.rowInRegionHasPencilMark(sudokuBoard, region, x, n)) {
+                        if (marksFound) {
+                            result = false;
+                            break;
+                        } else {
+                            marksFound = true;
+                            result = true;
+                            localRowIndex = Utilities.getX(region, x);
+                        }
+                    }
+                }
+
+                // If yes, does that row have any other marks of this type
+                otherRegionsHavePencilMark = false;
+                for(r = 0; r < 9; r++) {
+                    if(Utilities.getX(r, localRowIndex) === Utilities.getY(region, localRowIndex) && r !== region) {
+                        if(Utilities.rowInRegionHasPencilMark(sudokuBoard, r, localRowIndex, n)) {
+                            otherRegionsHavePencilMark = true;
+                            break;
+                        }
+                    }
+                }
+
+                if(result && otherRegionsHavePencilMark) {
+                    // Return the marks that are not in region
+                    coords = [];
+                    var marksInRow = Utilities.getCoordsForPencilMarkInRowByRegion(sudokuBoard, Utilities.getX(region, localRowIndex), n);
+                    for(q = 0; q < marksInRow.length; q++) {
+                        if(marksInRow[q].region !== region) {
+                            coords.push(marksInColumn.coord);
+                        }
+                    }
+                    return { coords: coords, value: n };
                 }
             }
         }
@@ -859,8 +949,8 @@ var Utilities = function() {
     }
 
     function regionHasValue(puzzle, squareIndex, value) {
-        var columnIndex = (squareIndex%3 === 0) ? 0 : ((squareIndex-1)%3 === 0) ? 3 : 6;
-        var rowIndex = (squareIndex < 3) ? 0 : (squareIndex < 6) ? 3 : 6;
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
         for(var x = 0; x < 3; x++) {
             for(var y = 0; y < 3; y++) {
                 if(puzzle.getValue(columnIndex+x, rowIndex+y) === value) {
@@ -872,6 +962,66 @@ var Utilities = function() {
     }
 
     // Pencil Marks
+    function columnHasPencilMark(puzzle, columnIndex, value) {
+       for(var x = 0; x < 9; x++) {
+           if(pencilMarkContains(puzzle.getPencilMark(x, columnIndex), value)) {
+               return true;
+           }
+       }
+       return false;
+    }
+
+    function columnInRegionHasPencilMark(puzzle, squareIndex, localColumnIndex, value) {
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
+        for(var x = 0; x < 3; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex+x, columnIndex+localColumnIndex), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function rowHasPencilMark(puzzle, rowIndex, value) {
+        for(var y = 0; y < 9; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex, y), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function rowInRegionHasPencilMark(puzzle, squareIndex, localRowIndex, value) {
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
+        for(var y = 0; y < 3; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex+localRowIndex, columnIndex+y), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getCoordsForPencilMarkInColumnByRegion(puzzle, columnIndex, value) {
+        var result = [];
+        for(var x = 0; x < 9; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(x, columnIndex), value)) {
+                result.push({ coord: [x , columnIndex], region: getRegionIndex(x, columnIndex) });
+            }
+        }
+        return result;
+    }
+
+    function getCoordsForPencilMarkInRowByRegion(puzzle, rowIndex, value) {
+        var result = [];
+        for(var y = 0; y < 9; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex, y), value)) {
+                result.push({ coord: [rowIndex, y], region: getRegionIndex(rowIndex, y) });
+            }
+        }
+        return result;
+    }
+
     function singlePencilMark(pencilMark) {
         var result = 0;
         // If not noted as blank
@@ -896,6 +1046,15 @@ var Utilities = function() {
         return (!pencilMark[0] && pencilMark[value]);
     }
 
+    // Private Functions
+    function _baseColumnIndexForRegion(squareIndex) {
+        return (squareIndex%3 === 0) ? 0 : ((squareIndex-1)%3 === 0) ? 3 : 6;
+    }
+
+    function _baseRowIndexForRegion(squareIndex) {
+        return (squareIndex < 3) ? 0 : (squareIndex < 6) ? 3 : 6;
+    }
+
     return {
         getX: getX,
         getY: getY,
@@ -908,9 +1067,15 @@ var Utilities = function() {
         getYIndexForValueInColumn: getYIndexForValueInColumn,
         getCoordForValueInRegion: getCoordForValueInRegion,
         columnHasValue: columnHasValue,
+        columnHasPencilMark: columnHasPencilMark,
+        columnInRegionHasPencilMark: columnInRegionHasPencilMark,
         rowHasValue: rowHasValue,
+        rowHasPencilMark: rowHasPencilMark,
+        rowInRegionHasPencilMark: rowInRegionHasPencilMark,
         regionHasValue: regionHasValue,
         getRegionIndex: getRegionIndex,
+        getCoordsForPencilMarkInColumnByRegion: getCoordsForPencilMarkInColumnByRegion,
+        getCoordsForPencilMarkInRowByRegion: getCoordsForPencilMarkInRowByRegion,
         singlePencilMark: singlePencilMark,
         pencilMarkContains: pencilMarkContains
     }

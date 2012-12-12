@@ -116,8 +116,8 @@ var Utilities = function() {
     }
 
     function regionHasValue(puzzle, squareIndex, value) {
-        var columnIndex = (squareIndex%3 === 0) ? 0 : ((squareIndex-1)%3 === 0) ? 3 : 6;
-        var rowIndex = (squareIndex < 3) ? 0 : (squareIndex < 6) ? 3 : 6;
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
         for(var x = 0; x < 3; x++) {
             for(var y = 0; y < 3; y++) {
                 if(puzzle.getValue(columnIndex+x, rowIndex+y) === value) {
@@ -129,6 +129,66 @@ var Utilities = function() {
     }
 
     // Pencil Marks
+    function columnHasPencilMark(puzzle, columnIndex, value) {
+       for(var x = 0; x < 9; x++) {
+           if(pencilMarkContains(puzzle.getPencilMark(x, columnIndex), value)) {
+               return true;
+           }
+       }
+       return false;
+    }
+
+    function columnInRegionHasPencilMark(puzzle, squareIndex, localColumnIndex, value) {
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
+        for(var x = 0; x < 3; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex+x, columnIndex+localColumnIndex), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function rowHasPencilMark(puzzle, rowIndex, value) {
+        for(var y = 0; y < 9; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex, y), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function rowInRegionHasPencilMark(puzzle, squareIndex, localRowIndex, value) {
+        var columnIndex = _baseColumnIndexForRegion(squareIndex);
+        var rowIndex = _baseRowIndexForRegion(squareIndex);
+        for(var y = 0; y < 3; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex+localRowIndex, columnIndex+y), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getCoordsForPencilMarkInColumnByRegion(puzzle, columnIndex, value) {
+        var result = [];
+        for(var x = 0; x < 9; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(x, columnIndex), value)) {
+                result.push({ coord: [x , columnIndex], region: getRegionIndex(x, columnIndex) });
+            }
+        }
+        return result;
+    }
+
+    function getCoordsForPencilMarkInRowByRegion(puzzle, rowIndex, value) {
+        var result = [];
+        for(var y = 0; y < 9; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowIndex, y), value)) {
+                result.push({ coord: [rowIndex, y], region: getRegionIndex(rowIndex, y) });
+            }
+        }
+        return result;
+    }
+
     function singlePencilMark(pencilMark) {
         var result = 0;
         // If not noted as blank
@@ -153,6 +213,15 @@ var Utilities = function() {
         return (!pencilMark[0] && pencilMark[value]);
     }
 
+    // Private Functions
+    function _baseColumnIndexForRegion(squareIndex) {
+        return (squareIndex%3 === 0) ? 0 : ((squareIndex-1)%3 === 0) ? 3 : 6;
+    }
+
+    function _baseRowIndexForRegion(squareIndex) {
+        return (squareIndex < 3) ? 0 : (squareIndex < 6) ? 3 : 6;
+    }
+
     return {
         getX: getX,
         getY: getY,
@@ -165,9 +234,15 @@ var Utilities = function() {
         getYIndexForValueInColumn: getYIndexForValueInColumn,
         getCoordForValueInRegion: getCoordForValueInRegion,
         columnHasValue: columnHasValue,
+        columnHasPencilMark: columnHasPencilMark,
+        columnInRegionHasPencilMark: columnInRegionHasPencilMark,
         rowHasValue: rowHasValue,
+        rowHasPencilMark: rowHasPencilMark,
+        rowInRegionHasPencilMark: rowInRegionHasPencilMark,
         regionHasValue: regionHasValue,
         getRegionIndex: getRegionIndex,
+        getCoordsForPencilMarkInColumnByRegion: getCoordsForPencilMarkInColumnByRegion,
+        getCoordsForPencilMarkInRowByRegion: getCoordsForPencilMarkInRowByRegion,
         singlePencilMark: singlePencilMark,
         pencilMarkContains: pencilMarkContains
     }

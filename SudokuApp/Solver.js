@@ -42,6 +42,18 @@ var Solver = function() {
             return { type: "Add", coords: [singleCandidate.coord], values: [singleCandidate.value] };
         }
 
+        // Candidate Lines
+        var pencilMarksToRemove = _candidateLines();
+        if(pencilMarksToRemove) {
+            return { type: "CandidateLines", coords: pencilMarksToRemove.coords, values:  [ pencilMarksToRemove.value ] };
+        }
+
+        // Multiple Lines
+        pencilMarksToRemove = _multipleLines();
+        if(pencilMarksToRemove) {
+            return { type: "MultipleLines", coords: pencilMarksToRemove.coords, values: [ pencilMarksToRemove.value ] };
+        }
+
         // Onwards!
 
     }
@@ -81,20 +93,26 @@ var Solver = function() {
                 case "Add":
                     console.log("Setting value " + move.values[0] + " at " + move.coords[0][0] + ", " + move.coords[0][1] + ".");
                     sudokuBoard.setValue(move.coords[0][0], move.coords[0][1], move.values[0]);
+                    return true;
                     break;
                 case "RemovePencilMark":
                     sudokuBoard.removePencilMark(move.coords[0][0], move.coords[0][1], move.values[0]);
                     console.log("Removing Pencil Mark " + move.values[0] + " at " + move.coords[0][0] + ", " + move.coords[0][1] + ".");
-                    return false;
+                    break;
+                case "CandidateLines":
+                    console.log("Candidate Lines Found")
+                    for(var n = 0; n < move.coords.length; n++) {
+                        sudokuBoard.removePencilMark(move.coords[n][0], move.coords[n][1], move.values[0]);
+                        console.log("Removing Pencil Mark " + move.values[0] + " at " + move.coords[m][0] + ", " + move.coords[m][1] + ".");
+                    }
                     break;
                 case "Complete":
                     console.log("No logical moves as board is complete");
-                    return false;
+                    break;
                 default:
                     console.log("Unrecognised Move.");
                     throw new Error("Unrecognised Move");
             }
-            return true;
         }
         //console.log("No logical moves");
         return false;
@@ -217,6 +235,100 @@ var Solver = function() {
                 }
             }
         }
+        return null;
+    }
+
+    function _candidateLines() {
+        // Returns { coords: [array of coordinates], value: value } or null
+        // For each number
+        for(var n = 1; n < 9; n++) {
+            // For each region
+            for(var region = 0; region < 9; region++) {
+                // Do marks for this number exist in only one column
+                var result = false;
+                var marksFound = false;
+                var localColumnIndex = 0;
+                for(var y = 0; y < 3; y++) {
+                    if(Utilities.columnInRegionHasPencilMark(sudokuBoard, region, y, n)) {
+                        if(marksFound) {
+                            result = false;
+                            break;
+                        } else  {
+                            marksFound = true;
+                            result = true;
+                            localColumnIndex = y;
+                        }
+                    }
+                }
+                // If yes, does that column have any other marks of this type
+                var otherRegionsHavePencilMark = false;
+                for(var r = 0; r < 9; r++) {
+                    if(Utilities.getY(r, localColumnIndex) === Utilities.getY(region, localColumnIndex) && r !== region) {
+                        if(Utilities.columnInRegionHasPencilMark(sudokuBoard, r, localColumnIndex, n)) {
+                            otherRegionsHavePencilMark = true;
+                            break;
+                        }
+                    }
+                }
+
+                if(result && otherRegionsHavePencilMark) {
+                    // Return the marks that are not in region
+                    var coords = [];
+                    var marksInColumn = Utilities.getCoordsForPencilMarkInColumnByRegion(sudokuBoard, Utilities.getY(region, localColumnIndex), n);
+                    for(var q = 0; q < marksInColumn.length; q++) {
+                        if(marksInColumn[q].region !== region) {
+                            coords.push(marksInColumn.coord);
+                        }
+                    }
+                    return { coords: coords, value: n };
+                }
+
+                // Do marks for this number exist in only one row
+                result = false;
+                marksFound = false;
+                var localRowIndex = 0;
+                for(var x = 0; x < 3; x++) {
+                    if(Utilities.rowInRegionHasPencilMark(sudokuBoard, region, x, n)) {
+                        if (marksFound) {
+                            result = false;
+                            break;
+                        } else {
+                            marksFound = true;
+                            result = true;
+                            localRowIndex = Utilities.getX(region, x);
+                        }
+                    }
+                }
+
+                // If yes, does that row have any other marks of this type
+                otherRegionsHavePencilMark = false;
+                for(r = 0; r < 9; r++) {
+                    if(Utilities.getX(r, localRowIndex) === Utilities.getY(region, localRowIndex) && r !== region) {
+                        if(Utilities.rowInRegionHasPencilMark(sudokuBoard, r, localRowIndex, n)) {
+                            otherRegionsHavePencilMark = true;
+                            break;
+                        }
+                    }
+                }
+
+                if(result && otherRegionsHavePencilMark) {
+                    // Return the marks that are not in region
+                    coords = [];
+                    var marksInRow = Utilities.getCoordsForPencilMarkInRowByRegion(sudokuBoard, Utilities.getX(region, localRowIndex), n);
+                    for(q = 0; q < marksInRow.length; q++) {
+                        if(marksInRow[q].region !== region) {
+                            coords.push(marksInColumn.coord);
+                        }
+                    }
+                    return { coords: coords, value: n };
+                }
+            }
+        }
+        return null;
+    }
+
+    function _multipleLines() {
+        // Returns { coords: [array of coordinates], value: value } or null
         return null;
     }
 

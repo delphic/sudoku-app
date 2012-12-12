@@ -9,8 +9,9 @@ var Validator = function() {
     Validation.MissingPencilMark = "MissingPencilMark";
 
     // Check if an entry is invalid against puzzle
-    // Returns { value, coords, type } if there's a clash, null otherwise
+    // Returns [{ value, coords, type }] if there are clash(s), null otherwise
     function validatePuzzleEntries(puzzle) {
+        var results = [];
         var x, y, i, j, rx, ry, value;
         var cache = [];
 
@@ -20,11 +21,11 @@ var Validator = function() {
                 value = puzzle.getValue(x, y);
                 if(value) {
                     if(cache[value]) {
-                        return {
+                        results.push({
                             value: value,
                             coords: [cache[value], [x, y]],
                             type: Validation.MultipleEntriesInRow
-                        };
+                        });
                     } else {
                         cache[value] = [x,y];
                     }
@@ -39,11 +40,11 @@ var Validator = function() {
                 value = puzzle.getValue(x, y);
                 if(value) {
                     if(cache[value]) {
-                        return {
+                        results.push({
                             value: value,
                             coords: [cache[value], [x,y]],
                             type: Validation.MultipleEntriesInColumn
-                        };
+                        });
                     } else {
                         cache[value] = [x, y];
                     }
@@ -62,11 +63,11 @@ var Validator = function() {
                         value = puzzle.getValue(x,y);
                         if(value) {
                             if(cache[value]) {
-                                return {
+                                results.push({
                                     value: value,
                                     coords: [cache[value], [x,y]],
                                     type: Validation.MultipleEntriesInRegion
-                                };
+                                });
                             } else {
                                 cache[value] = [x, y];
                             }
@@ -77,13 +78,14 @@ var Validator = function() {
             }
         }
 
-        return null;
+        return results.length > 0 ? results : null;
     }
 
     // Check if pencil marks are invalid against puzzle
-    // Returns { value, valueCoord, pencilMarkCoord, type } or null
+    // Returns [{ value, valueCoord, pencilMarkCoord, type }] or null
     function validatePuzzlePencilMarks(puzzle) {
         // For each number x, y, check pencil marks in row column and region
+        var results = [];
         var x, y, i, j, r, value;
         for(x = 0; x < 9; x++) {
             for(y =0; y < 9; y++) {
@@ -93,25 +95,26 @@ var Validator = function() {
                     for(i = 0; i < 9; i++) {
                         if(!puzzle.getValue(i,y)) {
                             if (Utilities.pencilMarkContains(puzzle.getPencilMark(i,y), value)) {
-                                return {
+                                results.push({
                                     value: value,
                                     valueCoord: [x,y],
                                     pencilMarkCoord: [i,y],
                                     type: Validation.InvalidPencilMark
-                                };
+                                });
                             }
                         }
                     }
                     // Check Column
                     for(j = 0; j < 9; j++) {
                         if(!puzzle.getValue(x,j)) {
+                            console.log("Checking " + x + ", " + j + "pencil marks");
                             if(Utilities.pencilMarkContains(puzzle.getPencilMark(x,j), value)) {
-                                return {
+                                results.push({
                                     value: value,
                                     valueCoord: [x,y],
                                     pencilMarkCoord: [x,j],
                                     type: Validation.InvalidPencilMark
-                                };
+                                });
                             }
                         }
                     }
@@ -121,12 +124,12 @@ var Validator = function() {
                         for(j = 0; j < 3; j++) {
                             if(!puzzle.getValue(Utilities.getX(r, i), Utilities.getY(r, j))) {
                                 if(Utilities.pencilMarkContains(puzzle.getPencilMark(Utilities.getX(r, i), Utilities.getY(r, j)), value)) {
-                                    return {
+                                    results.push({
                                         value: value,
                                         valueCoord: [x,y],
                                         pencilMarkCoord: [Utilities.getX(r, i), Utilities.getY(r, j)],
                                         type: Validation.InvalidPencilMark
-                                    };
+                                    });
                                 }
                             }
                         }
@@ -135,7 +138,7 @@ var Validator = function() {
             }
         }
 
-        return null;
+        return results.length > 0 ? results : null;
     }
 
     // Check if an entry is incorrect against solution

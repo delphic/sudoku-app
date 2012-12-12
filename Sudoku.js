@@ -331,7 +331,7 @@ var PuzzleGenerator = function() {
     function Generate(parameters) {
         var fullBoard = parameters.fullBoard;
         var puzzle = new SudokuBoard(fullBoard);
-        var squaresToRemove = 32;
+        var squaresToRemove = 20;
         var squaresRemoved = 0;
         var cache = [];
 
@@ -447,6 +447,12 @@ var Solver = function() {
         var pencilMarksToRemove = _candidateLines();
         if(pencilMarksToRemove) {
             return { type: "CandidateLines", coords: pencilMarksToRemove.coords, values:  [ pencilMarksToRemove.value ] };
+        }
+
+        // Multiple Lines
+        pencilMarksToRemove = _multipleLines();
+        if(pencilMarksToRemove) {
+            return { type: "MultipleLines", coords: pencilMarksToRemove.coords, values: [ pencilMarksToRemove.value ] };
         }
 
         // Onwards!
@@ -634,7 +640,7 @@ var Solver = function() {
     }
 
     function _candidateLines() {
-        // Returns { coords: [array of coordinates], value: value }
+        // Returns { coords: [array of coordinates], value: value } or null
         // For each number
         for(var n = 1; n < 9; n++) {
             // For each region
@@ -719,6 +725,11 @@ var Solver = function() {
                 }
             }
         }
+        return null;
+    }
+
+    function _multipleLines() {
+        // Returns { coords: [array of coordinates], value: value } or null
         return null;
     }
 
@@ -1092,8 +1103,9 @@ var Validator = function() {
     Validation.MissingPencilMark = "MissingPencilMark";
 
     // Check if an entry is invalid against puzzle
-    // Returns { value, coords, type } if there's a clash, null otherwise
+    // Returns [{ value, coords, type }] if there are clash(s), null otherwise
     function validatePuzzleEntries(puzzle) {
+        var results = [];
         var x, y, i, j, rx, ry, value;
         var cache = [];
 
@@ -1103,11 +1115,11 @@ var Validator = function() {
                 value = puzzle.getValue(x, y);
                 if(value) {
                     if(cache[value]) {
-                        return {
+                        results.push({
                             value: value,
                             coords: [cache[value], [x, y]],
                             type: Validation.MultipleEntriesInRow
-                        };
+                        });
                     } else {
                         cache[value] = [x,y];
                     }
@@ -1122,11 +1134,11 @@ var Validator = function() {
                 value = puzzle.getValue(x, y);
                 if(value) {
                     if(cache[value]) {
-                        return {
+                        results.push({
                             value: value,
                             coords: [cache[value], [x,y]],
                             type: Validation.MultipleEntriesInColumn
-                        };
+                        });
                     } else {
                         cache[value] = [x, y];
                     }
@@ -1145,11 +1157,11 @@ var Validator = function() {
                         value = puzzle.getValue(x,y);
                         if(value) {
                             if(cache[value]) {
-                                return {
+                                results.push({
                                     value: value,
                                     coords: [cache[value], [x,y]],
                                     type: Validation.MultipleEntriesInRegion
-                                };
+                                });
                             } else {
                                 cache[value] = [x, y];
                             }
@@ -1160,13 +1172,14 @@ var Validator = function() {
             }
         }
 
-        return null;
+        return results.length > 0 ? results : null;
     }
 
     // Check if pencil marks are invalid against puzzle
-    // Returns { value, valueCoord, pencilMarkCoord, type } or null
+    // Returns [{ value, valueCoord, pencilMarkCoord, type }] or null
     function validatePuzzlePencilMarks(puzzle) {
         // For each number x, y, check pencil marks in row column and region
+        var results = [];
         var x, y, i, j, r, value;
         for(x = 0; x < 9; x++) {
             for(y =0; y < 9; y++) {
@@ -1176,25 +1189,26 @@ var Validator = function() {
                     for(i = 0; i < 9; i++) {
                         if(!puzzle.getValue(i,y)) {
                             if (Utilities.pencilMarkContains(puzzle.getPencilMark(i,y), value)) {
-                                return {
+                                results.push({
                                     value: value,
                                     valueCoord: [x,y],
                                     pencilMarkCoord: [i,y],
                                     type: Validation.InvalidPencilMark
-                                };
+                                });
                             }
                         }
                     }
                     // Check Column
                     for(j = 0; j < 9; j++) {
                         if(!puzzle.getValue(x,j)) {
+                            console.log("Checking " + x + ", " + j + "pencil marks");
                             if(Utilities.pencilMarkContains(puzzle.getPencilMark(x,j), value)) {
-                                return {
+                                results.push({
                                     value: value,
                                     valueCoord: [x,y],
                                     pencilMarkCoord: [x,j],
                                     type: Validation.InvalidPencilMark
-                                };
+                                });
                             }
                         }
                     }
@@ -1204,12 +1218,12 @@ var Validator = function() {
                         for(j = 0; j < 3; j++) {
                             if(!puzzle.getValue(Utilities.getX(r, i), Utilities.getY(r, j))) {
                                 if(Utilities.pencilMarkContains(puzzle.getPencilMark(Utilities.getX(r, i), Utilities.getY(r, j)), value)) {
-                                    return {
+                                    results.push({
                                         value: value,
                                         valueCoord: [x,y],
                                         pencilMarkCoord: [Utilities.getX(r, i), Utilities.getY(r, j)],
                                         type: Validation.InvalidPencilMark
-                                    };
+                                    });
                                 }
                             }
                         }
@@ -1218,7 +1232,7 @@ var Validator = function() {
             }
         }
 
-        return null;
+        return results.length > 0 ? results : null;
     }
 
     // Check if an entry is incorrect against solution
@@ -1385,67 +1399,118 @@ var ValidatorTests = function(){
 
     // Test validatePuzzleEntries
     // Separate tests for row, column and region
-    // Returns { value, coords, type } if there's a clash, null otherwise
+    // Returns [{ value, coords, type }] if there's a clash, null otherwise
+
+    function _anyValuesMatch(results, expectedValue) {
+        for(var i = 0; i < results.length; i++) {
+            if(results[i].value === expectedValue) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _anyCoordsMatch(results, expectedCoords) {
+        for(var i = 0; i < results.length; i++) {
+            var actualCoords = results[i].coords;
+            if(actualCoords.toString() === expectedCoords.toString() || [actualCoords[1],actualCoords[0]].toString() === expectedCoords.toString()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     var validatePuzzleEntriesFullBoardTest = function() {
+        var testName = "Validate Puzzle Entries, Full Board";
         if (Validator.validatePuzzleEntries(fullBoard) === null) {
-            return true;
+            return { testName: testName, result: true };
         } else {
-            return "Unexpected result expected null";
+            return { testName: testName, message: "Unexpected result expected null", result: false };
         }
     };
     Tests.push(validatePuzzleEntriesFullBoardTest);
 
     var validatePuzzleEntriesRowClashTest = function() {
+        var testName = "Validate Puzzle Entries, Row Clash";
         var boardClash = new SudokuBoard(fullBoard);
         var value = boardClash.getValue(5,0)
         boardClash.setValue(0, 0, value);
         var validationResult = Validator.validatePuzzleEntries(boardClash);
         if(validationResult === null) {
-            return "Validation Result was null, expected clash at [0,0], [5,0]";
-        } else if (validationResult.value !== value) {
-            return "Validation Result was " + validationResult.value + " expected " + value;
-        } else if (validationResult.coords !== [[0,0],[5,0]] && validationResult.coords !== [[5,0],[0,0]]) {
-            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[5,0]];
+            return { testName: testName, message: "Validation result was null, expected clash at [0,0], [5,0]", result: false, board: _boardString(boardClash) };
+        } else if (!_anyValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain value " + value + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
+        } else if (!_anyCoordsMatch(validationResult, [[0,0],[5,0]])) {
+            return { testName: testName, message: "Validation result did not contain expected coordinates " + [[0,0],[5,0]] + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePuzzleEntriesRowClashTest);
 
     var validatePuzzleEntriesColumnClashTest = function() {
+        var testName = "Validate Puzzle Entries, Column Clash";
         var boardClash = new SudokuBoard(fullBoard);
         var value = boardClash.getValue(0,6)
         boardClash.setValue(0, 0, value);
         var validationResult = Validator.validatePuzzleEntries(boardClash);
         if(validationResult === null) {
-            return "Validation Result was null, expected clash at [0,0], [0,6]";
-        } else if (validationResult.value !== value) {
-            return "Validation Result was " + validationResult.value + " expected " + value;
-        } else if (validationResult.coords !== [[0,0],[0,6]] && validationResult.coords !== [[0,6],[0,0]]) {
-            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[0,6]];
+            return { testName: testName, message: "Validation Result was null, expected clash at [0,0], [0,6]", result: false, board: _boardString(boardClash) };
+        } else if (!_anyValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain value " + value + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
+        } else if (!_anyCoordsMatch(validationResult, [[0,0],[0,6]])) {
+            return { testName: testName, message: "Validation result did not contain expected coordinates " + [[0,0],[0,6]] + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePuzzleEntriesColumnClashTest);
 
     var validatePuzzleEntriesRegionClashTest = function() {
+        var testName = "Validate Puzzle Entries, Region Clash";
         var boardClash = new SudokuBoard(fullBoard);
         var value = boardClash.getValue(1,1)
         boardClash.setValue(0, 0, value);
         var validationResult = Validator.validatePuzzleEntries(boardClash);
         if(validationResult === null) {
-            return "Validation Result was null, expected clash at [0,0], [1,1]";
-        } else if (validationResult.value !== value) {
-            return "Validation Result was " + validationResult.value + " expected " + value;
-        } else if (validationResult.coords !== [[0,0],[1,1]] && validationResult.coords !== [[1,1],[0,0]]) {
-            return "Unexpected validation coords  was " + validationResult.coords + " expected " + [[0,0],[1,1]];
+            return { testName: testName, message: "Validation Result was null, expected clash at [0,0], [1,1]", result: false, board: _boardString(boardClash) };
+        } else if (!_anyValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain value " + value + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
+        } else if (!_anyCoordsMatch(validationResult, [[0,0],[1,1]])) {
+            return { testName: testName, message: "Validation result did not contain expected coordinates " + [[0,0],[1,1]] + ", validation result was " + JSON.stringify(validationResult), result: false, board: _boardString(boardClash) };
         }
-        return true;
+        return { testName: testName, result: true};
     };
     Tests.push(validatePuzzleEntriesRegionClashTest);
 
     // Test validatePuzzlePencilMarks
-    // Returns { value, valueCoord, pencilMarkCoord, type } or null
+    // Returns [{ value, valueCoord, pencilMarkCoord, type }] or null
+
+    function _anyPencilMarkValuesMatch(results, expectedValue) {
+        for(var i = 0, l = results.length; i < l; i++) {
+            if(results[i].value === expectedValue) {
+                return true;
+            }
+        }
+        return false;
+    }
+    function _anyValueCoordMatch(results, expectedCoordinates) {
+        for(var i = 0, l = results.length; i < l; i++) {
+            if(results[i].valueCoord.toString() === expectedCoordinates.toString()) {
+                return true;
+            }
+        }
+        return false;
+    }
+    function _anyPencilMarkCoordMatch(results, expectedCoordinates) {
+        for(var i = 0, l = results.length; i < l; i++) {
+            if(results[i].pencilMarkCoord.toString() === expectedCoordinates.toString()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     var validatePuzzlePencilMarksValidTest = function() {
+        var testName = "Validate Pencil Marks, Valid Mark";
        // Remove 3 numbers place pencil marks
         var testBoard = new SudokuBoard(fullBoard);
         var value = testBoard.getValue(0,0);
@@ -1459,118 +1524,162 @@ var ValidatorTests = function(){
         testBoard.addPencilMark(6,6,value);
 
         if (Validator.validatePuzzlePencilMarks(fullBoard) === null) {
-            return true;
+            return { testName: testName, result: true };
         } else {
-            return "Unexpected result expected null";
+            return { testName: testName, message: "Unexpected result expected null", result: false, board: _boardString(testBoard) };
         }
     };
     Tests.push(validatePuzzlePencilMarksValidTest);
 
     var validatePuzzlePencilMarksRowTest = function() {
+        var testName = "Validate Pencil Marks, Row Test"
         var testBoard = new SudokuBoard(fullBoard);
         var value = testBoard.getValue(5,0);
         testBoard.setValue(0,0,0);
         testBoard.addPencilMark(0,0,value);
-        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
-        if(validationResult.value !== value) {
-            return "Unexpected value was " + validationResult.value + " expected " + value;
-        } else if (validationResult.valueCoord !== [5,0]) {
-            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [5,0];
-        } else if (validationResult.pencilMarkCoord !== [0,0]) {
-            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        var validationResult = Validator.validatePuzzlePencilMarks(testBoard);
+        if(!validationResult) {
+            return { testName: testName, message: "No validation result, when invalid pencil mark expected", result: false, board: _boardString(testBoard) };
+        } else if(!_anyPencilMarkValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain expected value " + value + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyValueCoordMatch(validationResult, [5,0])) {
+            return { testName: testName, message: "Validation result did not contain expected value coordinate " + [5,0] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyPencilMarkCoordMatch(validationResult, [0,0])) {
+            return { testName: testName, message: "Validation result did not contain expected pencil mark coordinate " + [0,0] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePuzzlePencilMarksRowTest);
 
     var validatePuzzlePencilMarksColumnTest = function() {
+        var testName = "Validate Pencil Marks, Column Test";
         var testBoard = new SudokuBoard(fullBoard);
         var value = testBoard.getValue(0,5);
         testBoard.setValue(0,0,0);
         testBoard.addPencilMark(0,0,value);
-        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
-        if(validationResult.value !== value) {
-            return "Unexpected value was " + validationResult.value + " expected " + value;
-        } else if (validationResult.valueCoord !== [0,5]) {
-            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [0,5];
-        } else if (validationResult.pencilMarkCoord !== [0,0]) {
-            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        var validationResult = Validator.validatePuzzlePencilMarks(testBoard);
+        if (!validationResult) {
+            return { testName: testName, message: "No validation result, when invalid pencil mark expected", result: false, board: _boardString(testBoard) };
+        } else if(!_anyPencilMarkValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain expected value " + value + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyValueCoordMatch(validationResult, [0,5])) {
+            return { testName: testName, message: "Validation result did not contain expected value coordinate " + [0,5] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyPencilMarkCoordMatch(validationResult, [0,0])) {
+            return { testName: testName, message: "Validation result did not contain expected pencil mark coordinate " + [0,0] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
         }
-        return true;
+        return {testName: testName, result: true };
     };
     Tests.push(validatePuzzlePencilMarksColumnTest);
 
     var validatePuzzlePencilMarksRegionTest = function() {
+        var testName = "Validate Pencil Marks, Region Test";
         var testBoard = new SudokuBoard(fullBoard);
         var value = testBoard.getValue(1,1);
         testBoard.setValue(0,0,0);
         testBoard.addPencilMark(0,0,value);
-        var validationResult = Validator.validatePuzzlePencilMarks(fullBoard);
-        if(validationResult.value !== value) {
-            return "Unexpected value was " + validationResult.value + " expected " + value;
-        } else if (validationResult.valueCoord !== [1,1]) {
-            return "Unexpected value coordinate was " + validationResult.valueCoord + " expected " + [1,1];
-        } else if (validationResult.pencilMarkCoord !== [0,0]) {
-            return "Unexpected pencil mark coordinate was " +  validationResult.pencilMarkCoord + " expected " + [0,0];
+        var validationResult = Validator.validatePuzzlePencilMarks(testBoard);
+        if(!validationResult) {
+            return { testName: testName, message: "No validation result, when invalid pencil mark expected", result: false, board: _boardString(testBoard) };
+        } else if(!_anyPencilMarkValuesMatch(validationResult, value)) {
+            return { testName: testName, message: "Validation result did not contain expected value " + value + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyValueCoordMatch(validationResult, [1,1])) {
+            return { testName: testName, message: "Validation result did not contain expected value coordinate " + [1,1] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
+        } else if (!_anyPencilMarkCoordMatch(validationResult, [0,0])) {
+            return { testName: testName, message: "Validation result did not contain expected pencil mark coordinate " + [0,0] + " result was " + JSON.stringify(validationResult), result: false, board: _boardString(testBoard) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePuzzlePencilMarksRegionTest);
 
     // Test validateAgainstSolution
     // Returns { coord, type } or null
      var validateAgainstSolutionValidTest = function() {
+         var testName = "Validate Against Solution";
          if(Validator.validateAgainstSolution(fullBoard, fullBoard) !== null) {
-            return "Unexpected validation error";
+            return { testName: testName, message: "Unexpected validation error", result: false, board: _boardString(fullBoard) };
          }
-         return true;
+         return { testName: testName, result: true };
      };
     Tests.push(validateAgainstSolutionValidTest);
 
     var validateAgainstSolutionInvalidTest = function() {
+        var testName = "Validate Against Solution, Invalid Values";
         var secondBoard = new SudokuBoard(fullBoard);
         secondBoard.setValue(0,0,secondBoard.getValue(1,1));
         var validationResult =  Validator.validateAgainstSolution(secondBoard, fullBoard);
-        if(validationResult.coord !== [0,0]) {
-            return "Incorrect Validation Coordinate was " + validationResult.coord + " expected " + [0,0];
+        if(validationResult.coord.toString() !== [0,0].toString()) {
+            return { testName: testName, message: "Incorrect Validation Coordinate was " + validationResult.coord + " expected " + [0,0], result: false, board: _boardString(secondBoard) };
         }
+        return { testName: testName, result: true };
     };
-    Tests.push(validateAgainstSolutionValidTest);
+    Tests.push(validateAgainstSolutionInvalidTest);
 
     // Test validatePencilMarksAgainstSolution
     // Returns { value, coord, type } or null
     var validatePencilMarksAgainstSolutionValidTest = function() {
+        var testName = "Validate Pencil Marks Against Solution, Valid Board";
         var secondBoard = new SudokuBoard(fullBoard);
         var value = secondBoard.getValue(0,0);
         secondBoard.setValue(0,0,0);
         secondBoard.addPencilMark(0,0,value);
         if(Validator.validatePencilMarksAgainstSolution(secondBoard, fullBoard) !== null) {
-            return "Unexpected validation error";
+            return { testName: testName, message: "Unexpected validation error", result: false, board: _boardString(secondBoard) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePencilMarksAgainstSolutionValidTest);
 
     var validatePencilMarksAgainstSolutionInvalidTest = function() {
+        var testName = "Validate Pencil Marks Against Solution, 'Invalid Test'";
         var secondBoard = new SudokuBoard(fullBoard);
         var value = secondBoard.getValue(0,0);
         secondBoard.setValue(0,0,0);
         var validationResult = Validator.validatePencilMarksAgainstSolution(secondBoard, fullBoard);
         if(validationResult.value !== value) {
-            return "Unexpected value was " + validationResult.value + " expected " + value;
-        } else if (validationResult.coord !== [0,0]) {
-            return "Unexpected coordinates was " + validationResult.coord + " expected " + [0,0];
+            return { testName: testName, message: "Unexpected value was " + validationResult.value + " expected " + value, result: false, board: _boardString(secondBoard) };
+        } else if (validationResult.coord.toString() !== [0,0].toString()) {
+            return { testName: testName, message: "Unexpected coordinates was " + validationResult.coord + " expected " + [0,0], result: false, board: _boardString(secondBoard) };
         }
-        return true;
+        return { testName: testName, result: true };
     };
     Tests.push(validatePencilMarksAgainstSolutionInvalidTest);
 
-    function RunTests() {
+    function RunTests(id) {
+        var passedTests = 0;
+        var results = "";
         for(var i = 0; i < Tests.length; i++) {
-            var testResult = Tests[0]();
-            if(testResult === true) { testResult = "passed"; }
-            $("body").append("<p>Test #" + i + ": " + testResult + "</p>");
+            var testResult = Tests[i]();
+            if(testResult.result === true) {
+                testResult.message = "<span style='color: green'>passed</span>";
+                passedTests++;
+            } else {
+                testResult.message = "<span style='color: red'>"+ testResult.message + "</span>";
+            }
+            results += "<p>Test #" + (i+1) +" '"+testResult.testName+"': " + testResult.message + "</p>";
+            if(testResult.board) {
+                results += "<pre>" + testResult.board + "</pre>";
+            }
         }
+        $("#"+id).append("<p>" + passedTests + " out of " + Tests.length + " tests passed.</p>" + results);
+        /*
+         $("#"+id).append("<p>Generated Full Board:</p> <pre>" + _boardString(fullBoard) + "</pre>");
+        */
+    }
+
+    function _boardString(board) {
+        var result = "";
+        for(var x = 0; x < 9; x++) {
+            for(var y = 0; y < 9; y++) {
+                var value = board.getValue(x,y);
+                if(value) {
+                    result += " " + board.getValue(x,y) + " ";
+                } else {
+                    result += "p" + Utilities.singlePencilMark(board.getPencilMark(x,y)) + " ";
+                }
+            }
+            result += "\n";
+        }
+        return result;
     }
 
     return { RunTests: RunTests };

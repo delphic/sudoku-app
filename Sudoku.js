@@ -380,7 +380,7 @@ var PuzzleGenerator = function() {
     function GenerateAsync(parameters, callback) {
         var fullBoard = parameters.fullBoard;
         var puzzle = new SudokuBoard(fullBoard);
-        var squaresToRemove = 24;
+        var squaresToRemove = 20;
         var squaresRemoved = 0;
         var cache = [];
         var callCount = 0;
@@ -709,6 +709,8 @@ var Solver = function() {
         return null;
     }
 
+    // Do certain marks only exist in one row or column for a given region, if so remove marks from other regions for
+    // that row or column
     function _candidateLines() {
         // Returns { coords: [array of coordinates], value: value } or null
         // For each number
@@ -798,8 +800,84 @@ var Solver = function() {
         return null;
     }
 
+    // Do certain marks only exist in one region for a given row or column, if so remove marks from other rows or
+    // columns in that region.
     function _multipleLines() {
         // Returns { coords: [array of coordinates], value: value } or null
+        // For each number
+        for(var n = 1; n < 9; n++) {
+            var coordinates = [];
+            for(var rowRegion = 0; rowRegion < 3; rowRegion++) {
+                for(var localRow = 0; localRow < 3; localRow++) {
+                    var pencilMarkInRowCount = 0;
+                    var lastColumnRegionWithPencilMark;
+                    for(var columnRegion = 0; columnRegion < 3; columnRegion++) {
+                        if(Utilities.rowInRegionsHasPencilMark(
+                            puzzle,  
+                            rowRegion,
+                            columnRegion,
+                            localRow,
+                            n)) {
+                            pencilMarkInRowCount++;
+                            lastColumnRegionWithPencilMark = columnRegion;
+                        }
+                    }
+                    if(pencilMarkInRowCount == 1){
+                        for(var otherRow = 0; otherRow < 3; otherRow++) {
+                            if(otherRow!=localRow) {
+                                // Any other pencilmarks in region
+                                Utilities.getCoordinatesOfPencilMarksInRowInRegion(
+                                    puzzle,
+                                    rowRegion,
+                                    columnRegion,
+                                    otherRow,
+                                    n,
+                                    coordinates); // coordinates is an out;
+                            }
+                        }
+                        if(coordinates.length) {
+                            return { coords: coordinates, value: n };   
+                        }
+                    }
+                }
+            }
+
+            // Repeat for Columns
+            for(var columnRegion = 0; columnRegion < 3; columnRegion++) {
+                for(var localRow = 0; localRow < 3; localRow++) {
+                    var pencilMarkInCoulmnCount = 0;
+                    var lastRowRegionWithPencilMark;
+                    for(var rowRegion = 0; rowRegion < 3; rowRegion++) {
+                        if(Utilities.coulmnInRegionsHasPencilMark(
+                            puzzle,  
+                            rowRegion,
+                            columnRegion,
+                            localRow,
+                            n)) {
+                            pencilMarkInCoulmnCount++;
+                            lastRowRegionWithPencilMark = rowRegion;
+                        }
+                    }
+                    if(pencilMarkInCoulmnCount == 1){
+                        for(var otherRow = 0; otherRow < 3; otherRow++) {
+                            if(otherRow!=localRow) {
+                                // Any other pencilmarks in region
+                                Utilities.getCoordinatesOfPencilMarksInColumnInRegion(
+                                    puzzle,
+                                    rowRegion,
+                                    columnRegion,
+                                    otherRow,
+                                    n,
+                                    coordinates); // coordinates is an out;
+                            }
+                        }
+                        if(coordinates.length) {
+                            return { coords: coordinates, value: n };   
+                        }
+                    }
+                }
+            }
+        }
         return null;
     }
 
@@ -813,7 +891,7 @@ var Solver = function() {
 function SudokuBoard(sudokuBoard) {
     // Pencil Marks
     this.getPencilMark = function(x, y) {
-        return pencilMarks[x + 9*y].slice(0);
+        return pencilMarks[x + 9*y];
     }
     this.addPencilMark = function(x, y, value) {
         if(value === 0) { return; }
@@ -1052,11 +1130,21 @@ var Utilities = function() {
        return false;
     }
 
+    // [Obsolete]
     function columnInRegionHasPencilMark(puzzle, squareIndex, localColumnIndex, value) {
         var columnIndex = _baseColumnIndexForRegion(squareIndex);
         var rowIndex = _baseRowIndexForRegion(squareIndex);
         for(var x = 0; x < 3; x++) {
             if(pencilMarkContains(puzzle.getPencilMark(rowIndex+x, columnIndex+localColumnIndex), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function columnInRegionHasPencilMark(puzzle, rowRegion, columnRegion, localColumnIndex, value) {
+        for(var x = 0; x < 3; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowRegion*3 + x, columnRegion*3 + localColumnIndex), value)) {
                 return true;
             }
         }
@@ -1072,11 +1160,21 @@ var Utilities = function() {
         return false;
     }
 
+    // [Obsolete]
     function rowInRegionHasPencilMark(puzzle, squareIndex, localRowIndex, value) {
         var columnIndex = _baseColumnIndexForRegion(squareIndex);
         var rowIndex = _baseRowIndexForRegion(squareIndex);
         for(var y = 0; y < 3; y++) {
             if(pencilMarkContains(puzzle.getPencilMark(rowIndex+localRowIndex, columnIndex+y), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function rowInRegionsHasPencilMark(puzzle, rowRegion, columnRegion, localRowIndex, value) {
+        for(var y = 0; y < 3; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowRegion*3 + localRowIndex, columnRegion*3 + y), value)) {
                 return true;
             }
         }
@@ -1101,6 +1199,24 @@ var Utilities = function() {
             }
         }
         return result;
+    }
+
+    function getCoordinatesOfPencilMarksInRowInColumnRegion(puzzle, rowRegion, columnRegion, localRow, value, out) {
+        out = out || [];
+        for(var y = 0; y < 3; y++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowRegion*3 + localRow, columnRegion*3 + y), value)) {
+                out.push([rowRegion*3 + localRow, columnRegion*3 + y]);
+            }
+        }
+    }
+
+    function getCoordinatesOfPencilMarksInColumnInRowRegion(puzzle, rowRegion, columnRegion, localColumn, value, out) {
+        out = out || [];
+        for(var x = 0; x < 3; x++) {
+            if(pencilMarkContains(puzzle.getPencilMark(rowRegion*3 + x, columnRegion*3 + localColumn), value)) {
+                out.push([rowRegion*3 + x, columnRegion*3 + localColumn]);
+            }
+        }
     }
 
     function singlePencilMark(pencilMark) {
@@ -1150,13 +1266,17 @@ var Utilities = function() {
         columnHasValue: columnHasValue,
         columnHasPencilMark: columnHasPencilMark,
         columnInRegionHasPencilMark: columnInRegionHasPencilMark,
+        columnInRegionsHasPencilMark: columnInRegionHasPencilMark,
         rowHasValue: rowHasValue,
         rowHasPencilMark: rowHasPencilMark,
         rowInRegionHasPencilMark: rowInRegionHasPencilMark,
+        rowInRegionsHasPencilMark: rowInRegionHasPencilMark,
         regionHasValue: regionHasValue,
         getRegionIndex: getRegionIndex,
         getCoordsForPencilMarkInColumnByRegion: getCoordsForPencilMarkInColumnByRegion,
         getCoordsForPencilMarkInRowByRegion: getCoordsForPencilMarkInRowByRegion,
+        getCoordinatesOfPencilMarksInRowInColumnRegion: getCoordinatesOfPencilMarksInRowInColumnRegion,
+        getCoordinatesOfPencilMarksInColumnInRowRegion: getCoordinatesOfPencilMarksInColumnInRowRegion,
         singlePencilMark: singlePencilMark,
         pencilMarkContains: pencilMarkContains
     }

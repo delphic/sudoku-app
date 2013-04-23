@@ -16,8 +16,8 @@ Sudoku to do list
 	O Integrate Validator
  O Add the increasing Techniques
     Medium:
-    O Candidate Lines
-    O Multiple Lines
+    X Candidate Lines
+    X Multiple Lines
     Hard:
     O Hidden Pairs / Triple / Quad
     O Naked Pairs / Triple / Quad

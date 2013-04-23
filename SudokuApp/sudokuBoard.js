@@ -1,7 +1,7 @@
 function SudokuBoard(sudokuBoard) {
     // Pencil Marks
     this.getPencilMark = function(x, y) {
-        return pencilMarks[x + 9*y].slice(0);
+        return pencilMarks[x + 9*y];
     }
     this.addPencilMark = function(x, y, value) {
         if(value === 0) { return; }

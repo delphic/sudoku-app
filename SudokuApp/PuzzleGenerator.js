@@ -49,7 +49,7 @@ var PuzzleGenerator = function() {
     function GenerateAsync(parameters, callback) {
         var fullBoard = parameters.fullBoard;
         var puzzle = new SudokuBoard(fullBoard);
-        var squaresToRemove = 24;
+        var squaresToRemove = 20;
         var squaresRemoved = 0;
         var cache = [];
         var callCount = 0;

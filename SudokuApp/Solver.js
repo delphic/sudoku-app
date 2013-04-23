@@ -238,6 +238,8 @@ var Solver = function() {
         return null;
     }
 
+    // Do certain marks only exist in one row or column for a given region, if so remove marks from other regions for
+    // that row or column
     function _candidateLines() {
         // Returns { coords: [array of coordinates], value: value } or null
         // For each number
@@ -327,8 +329,84 @@ var Solver = function() {
         return null;
     }
 
+    // Do certain marks only exist in one region for a given row or column, if so remove marks from other rows or
+    // columns in that region.
     function _multipleLines() {
         // Returns { coords: [array of coordinates], value: value } or null
+        // For each number
+        for(var n = 1; n < 9; n++) {
+            var coordinates = [];
+            for(var rowRegion = 0; rowRegion < 3; rowRegion++) {
+                for(var localRow = 0; localRow < 3; localRow++) {
+                    var pencilMarkInRowCount = 0;
+                    var lastColumnRegionWithPencilMark;
+                    for(var columnRegion = 0; columnRegion < 3; columnRegion++) {
+                        if(Utilities.rowInRegionsHasPencilMark(
+                            puzzle,  
+                            rowRegion,
+                            columnRegion,
+                            localRow,
+                            n)) {
+                            pencilMarkInRowCount++;
+                            lastColumnRegionWithPencilMark = columnRegion;
+                        }
+                    }
+                    if(pencilMarkInRowCount == 1){
+                        for(var otherRow = 0; otherRow < 3; otherRow++) {
+                            if(otherRow!=localRow) {
+                                // Any other pencilmarks in region
+                                Utilities.getCoordinatesOfPencilMarksInRowInRegion(
+                                    puzzle,
+                                    rowRegion,
+                                    columnRegion,
+                                    otherRow,
+                                    n,
+                                    coordinates); // coordinates is an out;
+                            }
+                        }
+                        if(coordinates.length) {
+                            return { coords: coordinates, value: n };   
+                        }
+                    }
+                }
+            }
+
+            // Repeat for Columns
+            for(var columnRegion = 0; columnRegion < 3; columnRegion++) {
+                for(var localRow = 0; localRow < 3; localRow++) {
+                    var pencilMarkInCoulmnCount = 0;
+                    var lastRowRegionWithPencilMark;
+                    for(var rowRegion = 0; rowRegion < 3; rowRegion++) {
+                        if(Utilities.coulmnInRegionsHasPencilMark(
+                            puzzle,  
+                            rowRegion,
+                            columnRegion,
+                            localRow,
+                            n)) {
+                            pencilMarkInCoulmnCount++;
+                            lastRowRegionWithPencilMark = rowRegion;
+                        }
+                    }
+                    if(pencilMarkInCoulmnCount == 1){
+                        for(var otherRow = 0; otherRow < 3; otherRow++) {
+                            if(otherRow!=localRow) {
+                                // Any other pencilmarks in region
+                                Utilities.getCoordinatesOfPencilMarksInColumnInRegion(
+                                    puzzle,
+                                    rowRegion,
+                                    columnRegion,
+                                    otherRow,
+                                    n,
+                                    coordinates); // coordinates is an out;
+                            }
+                        }
+                        if(coordinates.length) {
+                            return { coords: coordinates, value: n };   
+                        }
+                    }
+                }
+            }
+        }
         return null;
     }
 

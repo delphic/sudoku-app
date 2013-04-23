@@ -94,7 +94,7 @@ function SudokuBoard(sudokuBoard) {
         for(var x = 0; x < 9; x++) {
             for(var y = 0; y < 9; y++) {
                 this.setValue(x, y, sudokuBoard.getValue(x,y));
-                pencilMarks[x + 9*y] = sudokuBoard.getPencilMark(x,y);
+                pencilMarks[x + 9*y] = sudokuBoard.getPencilMark(x,y).slice(0);
             }
         }
     }

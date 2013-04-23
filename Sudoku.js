@@ -984,15 +984,15 @@ function SudokuBoard(sudokuBoard) {
         for(var x = 0; x < 9; x++) {
             for(var y = 0; y < 9; y++) {
                 this.setValue(x, y, sudokuBoard.getValue(x,y));
-                pencilMarks[x + 9*y] = sudokuBoard.getPencilMark(x,y);
+                pencilMarks[x + 9*y] = sudokuBoard.getPencilMark(x,y).slice(0);
             }
         }
     }
 };
 
 var Utilities = function() {
-    function getRow(puzzle, rowIndex) {
-        var row = [];
+    function getRow(puzzle, rowIndex, out) {
+        var row = out ? out : [];
         for(var i = 0; i < 9; i++) {
             row[i] = puzzle.getValue(i,rowIndex);
         }
@@ -1005,8 +1005,8 @@ var Utilities = function() {
         }
     }
 
-    function getColumn(puzzle, columnIndex) {
-        var column = [];
+    function getColumn(puzzle, columnIndex, out) {
+        var column = out ? out : [];
         for(var j=0; j < 9; j++) {
             column[j] = puzzle.getValue(columnIndex, j);
         }

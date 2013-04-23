@@ -1,6 +1,6 @@
 var Utilities = function() {
-    function getRow(puzzle, rowIndex) {
-        var row = [];
+    function getRow(puzzle, rowIndex, out) {
+        var row = out ? out : [];
         for(var i = 0; i < 9; i++) {
             row[i] = puzzle.getValue(i,rowIndex);
         }
@@ -13,8 +13,8 @@ var Utilities = function() {
         }
     }
 
-    function getColumn(puzzle, columnIndex) {
-        var column = [];
+    function getColumn(puzzle, columnIndex, out) {
+        var column = out ? out : [];
         for(var j=0; j < 9; j++) {
             column[j] = puzzle.getValue(columnIndex, j);
         }

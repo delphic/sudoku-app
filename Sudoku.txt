@@ -14,6 +14,10 @@ Sudoku to do list
 	X Pencil Marks
 	O Highlighting
 	O Integrate Validator
+ O Move to browserify
+ O Address memory issues on long solves.
+ O Address possibilities of unsolvable situations (can only back track a single pair atm).
+ O Writes tests for existing Methods
  O Add the increasing Techniques
     Medium:
     X Candidate Lines
